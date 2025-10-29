@@ -1,0 +1,165 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run tests
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Build example
+      run: |
+        cd examples/basic
+        go build -o migrator-example
+
+    # Only auto-release on main branch push (not PRs)
+    - name: Get latest tag
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      id: get_latest_tag
+      run: |
+        # Get latest tag or default to v0.0.0
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+        echo "Latest tag: $LATEST_TAG"
+
+    - name: Calculate next version
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      id: next_version
+      run: |
+        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+        
+        # Extract version numbers
+        VERSION=${LATEST_TAG#v}
+        MAJOR=$(echo $VERSION | cut -d. -f1)
+        MINOR=$(echo $VERSION | cut -d. -f2)
+        PATCH=$(echo $VERSION | cut -d. -f3)
+        
+        # Check commit message for version bump hints
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+        
+        if echo "$COMMIT_MSG" | grep -qiE '\[major\]|breaking change|BREAKING CHANGE'; then
+          # Major version bump
+          MAJOR=$((MAJOR + 1))
+          MINOR=0
+          PATCH=0
+        elif echo "$COMMIT_MSG" | grep -qiE '\[minor\]|\[feature\]|\[\+\]'; then
+          # Minor version bump
+          MINOR=$((MINOR + 1))
+          PATCH=0
+        else
+          # Patch version bump (default)
+          PATCH=$((PATCH + 1))
+        fi
+        
+        NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "Next version: $NEW_VERSION"
+
+    - name: Create and push tag
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      id: create_tag
+      run: |
+        NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+        
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+        git push origin "$NEW_VERSION"
+        
+        echo "tag_created=true" >> $GITHUB_OUTPUT
+
+    - name: Generate changelog
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.create_tag.outputs.tag_created == 'true'
+      id: changelog
+      run: |
+        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+        NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+        
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        if [ "$LATEST_TAG" = "v0.0.0" ]; then
+          echo "🎉 Initial release" >> $GITHUB_OUTPUT
+        else
+          git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" >> $GITHUB_OUTPUT
+        fi
+        echo "" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.create_tag.outputs.tag_created == 'true'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.next_version.outputs.new_version }}
+        release_name: Release ${{ steps.next_version.outputs.new_version }}
+        body: |
+          ## 🎉 Release ${{ steps.next_version.outputs.new_version }}
+          
+          ### 📦 Installation
+          ```bash
+          go get github.com/hasirciogluhq/migrator@${{ steps.next_version.outputs.new_version }}
+          ```
+          
+          ### 📝 Changes
+          ${{ steps.changelog.outputs.CHANGELOG }}
+          
+          ### 📚 Documentation
+          - [GoDoc](https://pkg.go.dev/github.com/hasirciogluhq/migrator@${{ steps.next_version.outputs.new_version }})
+          - [README](https://github.com/hasirciogluhq/migrator/blob/${{ steps.next_version.outputs.new_version }}/README.md)
+          
+          ---
+          ✅ All tests passed before this release
+          🤖 Automatically released by CI/CD
+        draft: false
+        prerelease: false
+
+    - name: Notify pkg.go.dev
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.create_tag.outputs.tag_created == 'true'
+      run: |
+        NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+        curl -X POST "https://proxy.golang.org/github.com/hasirciogluhq/migrator/@v/${NEW_VERSION}.info" || true
+        echo "✅ Release $NEW_VERSION completed!"
+
