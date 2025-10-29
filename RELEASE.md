@@ -1,63 +1,63 @@
 # Release Process
 
-Bu paket **tamamen otomatik** release sistemi kullanır. Manuel bir şey yapman gerekmiyor!
+This package uses a **fully automated** release system. No manual steps required!
 
-## 🤖 Otomatik Release Nasıl Çalışır?
+## 🤖 How Automated Releases Work
 
-### 1. Kod Yaz ve Commit Et
+### 1. Write Code and Commit
 ```bash
 git add .
 git commit -m "[+] Added new feature"
 git push origin main
 ```
 
-### 2. CI/CD Otomatik Çalışır
+### 2. CI/CD Runs Automatically
 ```
-✅ Testleri çalıştırır
-✅ Build kontrol eder
-✅ Testler başarılıysa:
-   → Otomatik version tag oluşturur
-   → GitHub Release yapar
-   → pkg.go.dev günceller
+✅ Runs tests
+✅ Checks build
+✅ If tests pass:
+   → Automatically creates version tag
+   → Creates GitHub Release
+   → Updates pkg.go.dev
 ```
 
-### 3. Kullanıcılar İndirebilir
+### 3. Users Can Install
 ```bash
 go get github.com/hasirciogluhq/migrator@latest
 ```
 
-## 📝 Version Otomatiği
+## 📝 Automatic Versioning
 
-Commit message'ına göre otomatik version belirlenir:
+Version is automatically determined from commit message:
 
 ### MAJOR version bump (v1.0.0 → v2.0.0)
-Breaking change için:
+For breaking changes:
 ```bash
-git commit -m "[MAJOR] Breaking change: API değişti"
-# veya
-git commit -m "BREAKING CHANGE: API değişti"
+git commit -m "[MAJOR] Breaking change: API changed"
+# or
+git commit -m "BREAKING CHANGE: API changed"
 ```
 
 ### MINOR version bump (v1.0.0 → v1.1.0)  
-Yeni feature için:
+For new features:
 ```bash
 git commit -m "[+] Added new feature"
-# veya
+# or
 git commit -m "[feature] New shadow DB mode"
-# veya
+# or
 git commit -m "[minor] Enhanced logging"
 ```
 
 ### PATCH version bump (v1.0.0 → v1.0.1)
-Bug fix için (default):
+For bug fixes (default):
 ```bash
 git commit -m "[*] Fixed migration bug"
-# veya
+# or
 git commit -m "Fixed typo"
-# veya herhangi bir mesaj (default PATCH)
+# or any message (defaults to PATCH)
 ```
 
-## 🎯 Örnekler
+## 🎯 Examples
 
 ### Bug Fix Release
 ```bash
@@ -65,7 +65,7 @@ git add .
 git commit -m "[*] Fixed shadow DB cleanup issue"
 git push origin main
 
-# CI/CD otomatik:
+# CI/CD automatically:
 # v1.0.0 → v1.0.1
 ```
 
@@ -75,7 +75,7 @@ git add .
 git commit -m "[+] Added migration rollback support"
 git push origin main
 
-# CI/CD otomatik:
+# CI/CD automatically:
 # v1.0.1 → v1.1.0
 ```
 
@@ -86,152 +86,152 @@ git commit -m "[MAJOR] Changed Migrate() signature
 [*] Now requires context as first parameter"
 git push origin main
 
-# CI/CD otomatik:
+# CI/CD automatically:
 # v1.1.0 → v2.0.0
 ```
 
 ## 🔄 Pull Request Flow
 
-### PR Oluşturulunca
+### When PR is Created
 ```
-✅ Testler otomatik çalışır
-❌ Release OLMAZ (sadece test)
-```
-
-### PR Merge Edilince
-```
-✅ Testler tekrar çalışır
-✅ Başarılıysa → OTOMATIK RELEASE!
+✅ Tests run automatically
+❌ NO release (tests only)
 ```
 
-## ⚠️ Testler Başarısız Olursa?
+### When PR is Merged
+```
+✅ Tests run again
+✅ If successful → AUTOMATIC RELEASE!
+```
+
+## ⚠️ If Tests Fail
 
 ```bash
 git push origin main
 
 # CI/CD:
-✅ Testleri çalıştırır
-❌ Testler fail olur
-⛔ RELEASE YAPILMAZ
-💡 Commit main'de kalır ama release olmaz
+✅ Runs tests
+❌ Tests fail
+⛔ NO RELEASE
+💡 Commit stays on main but no release
 ```
 
-**Ne yapmalısın:**
-1. Sorunu düzelt
-2. Yeni commit at
-3. Push et
-4. CI/CD tekrar dener
+**What to do:**
+1. Fix the issue
+2. Make new commit
+3. Push again
+4. CI/CD tries again
 
 ## 📊 Release Timeline
 
 ```
 Commit → Push
    ↓
-CI/CD Başlar (1-2dk)
+CI/CD Starts (1-2min)
    ↓
-Testler Çalışır (30sn)
+Tests Run (30sec)
    ↓
-   ├─ ✅ Başarılı
+   ├─ ✅ Success
    │     ↓
-   │  Version Hesapla (commit message'dan)
+   │  Calculate Version (from commit message)
    │     ↓
-   │  Tag Oluştur (otomatik)
+   │  Create Tag (automatic)
    │     ↓
-   │  GitHub Release (otomatik)
+   │  GitHub Release (automatic)
    │     ↓
-   │  pkg.go.dev Güncelle (otomatik)
+   │  Update pkg.go.dev (automatic)
    │     ↓
-   │  ✅ DONE! Herkes kullanabilir
+   │  ✅ DONE! Everyone can use it
    │
-   └─ ❌ Başarısız
+   └─ ❌ Failed
         ↓
-     Release YOK (güvenli)
+     NO Release (safe)
 ```
 
-## 🎬 İlk Release
+## 🎬 First Release
 
-İlk commit'te `v0.1.0` olarak başlar:
+First commit starts as `v0.1.0`:
 
 ```bash
-# İlk commit ve push
+# First commit and push
 git push origin main
 
-# Otomatik: v0.1.0 release
+# Automatically: v0.1.0 release
 ```
 
-## 📱 Release Takibi
+## 📱 Track Releases
 
-### GitHub'da İzle
+### On GitHub
 - **Releases**: `https://github.com/hasirciogluhq/migrator/releases`
 - **Actions**: `https://github.com/hasirciogluhq/migrator/actions`
-- Her commit'te CI/CD durumunu görebilirsin
+- See CI/CD status for each commit
 
-### pkg.go.dev'de İzle
+### On pkg.go.dev
 - `https://pkg.go.dev/github.com/hasirciogluhq/migrator`
-- Tüm versiyonlar otomatik listelenir
+- All versions automatically listed
 
-## 🚫 Yapma Listesi
+## 🚫 Don't Do This
 
-❌ Manuel tag atma - otomatik  
-❌ Manuel release oluşturma - otomatik  
-❌ Version number belirleme - otomatik  
-❌ Changelog yazma - otomatik  
-❌ pkg.go.dev güncelleme - otomatik  
+❌ Manual tag creation - automatic  
+❌ Manual release creation - automatic  
+❌ Version number assignment - automatic  
+❌ Changelog writing - automatic  
+❌ pkg.go.dev updates - automatic  
 
-## ✅ Yapma Listesi
+## ✅ Do This
 
-✅ Kod yaz  
-✅ Test et (`make test-docker`)  
-✅ Commit et (doğru message formatı)  
-✅ Push et  
-✅ GitHub Actions'ı izle (optional)  
+✅ Write code  
+✅ Test (`make test-docker`)  
+✅ Commit (correct message format)  
+✅ Push  
+✅ Watch GitHub Actions (optional)  
 
 ## 💡 Pro Tips
 
-1. **Commit message önemli!** 
+1. **Commit message matters!** 
    - `[+]` = minor bump
    - `[*]` = patch bump
    - `[MAJOR]` = major bump
 
-2. **Main'e push = Release**
-   - Her main push potansiyel release
-   - Test başarısız = güvende (release olmaz)
+2. **Push to main = Release**
+   - Every main push is potential release
+   - Failed tests = safe (no release)
 
-3. **PR'da test, merge'de release**
-   - PR açtığında sadece test
-   - Merge ettiğinde otomatik release
+3. **PR tests, merge releases**
+   - PR opened → only tests
+   - PR merged → automatic release
 
-4. **Hotfix için**
+4. **For hotfixes**
    ```bash
    git commit -m "[*] Critical bug fix"
    git push origin main
-   # Otomatik patch version (v1.0.0 → v1.0.1)
+   # Automatic patch version (v1.0.0 → v1.0.1)
    ```
 
-## 🔧 Sistemle Oynama
+## 🔧 Customize System
 
-Eğer CI/CD'yi değiştirmek istersen:
-- `.github/workflows/ci-cd.yml` dosyasını düzenle
-- Test logic'i değiştirebilirsin
-- Version rules'ları özelleştirebilirsin
+If you want to modify CI/CD:
+- Edit `.github/workflows/ci-cd.yml`
+- Change test logic
+- Customize version rules
 
-## ❓ SSS
+## ❓ FAQ
 
-**S: Manuel release yapabilir miyim?**  
-C: Evet ama gerek yok. Ama illa istersen: `git tag v1.0.0 && git push origin v1.0.0`
+**Q: Can I manually release?**  
+A: Yes, but not needed. But if you insist: `git tag v1.0.0 && git push origin v1.0.0`
 
-**S: Release'i geri alabilir miyim?**  
-C: Evet, GitHub'dan release'i sil. Ama tag kalacak, kullanıcılar yine indirebilir.
+**Q: Can I revert a release?**  
+A: Yes, delete release on GitHub. But tag remains, users can still download.
 
-**S: Testler geçmeden release olabilir mi?**  
-C: Hayır, imkansız. CI/CD engeller.
+**Q: Can release happen without tests passing?**  
+A: No, impossible. CI/CD blocks it.
 
-**S: Her commit'te release oluyor mu?**  
-C: Evet! Main'e her push'ta (testler başarılıysa). Dikkatli commit at!
+**Q: Does every commit create a release?**  
+A: Yes! Every push to main (if tests pass). Commit carefully!
 
-**S: PR'da release olur mu?**  
-C: Hayır, sadece testler çalışır. Merge edilince release olur.
+**Q: Do PRs create releases?**  
+A: No, only tests run. Release happens when merged.
 
 ---
 
-**Özet:** Kod yaz, push et, gerisini CI/CD halleder! 🚀
+**Summary:** Write code, push, CI/CD handles the rest! 🚀
