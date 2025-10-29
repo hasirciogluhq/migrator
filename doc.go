@@ -59,14 +59,18 @@ The shadow database is a temporary copy used for testing before applying to prod
 
 Configure the migrator using environment variables:
 
-  - DATABASE_URL: PostgreSQL connection string (required)
+  - DATABASE_URL: PostgreSQL connection string (optional, fallback for shadow DB)
   - MIGRATIONS_PATH: Path to migrations directory (default: ./migrations)
 
 Or use custom options:
 
 	m := migrator.NewWithOptions(db, migrator.Options{
 		MigrationsPath: "./db/migrations",
+		DatabaseURL:    "postgres://user:pass@localhost/db", // For shadow DB testing
 	})
+
+For production use, it's recommended to pass DatabaseURL in Options rather than
+relying on environment variables.
 
 # Architecture
 

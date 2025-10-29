@@ -555,3 +555,66 @@ func TestMigrator_ConcurrentMigrations(t *testing.T) {
 	applied := helper.getAppliedMigrations(t)
 	assert.Equal(t, []string{"001_create_users.sql"}, applied)
 }
+
+func TestMigrator_WithOptions_ExplicitDatabaseURL(t *testing.T) {
+	helper := setupTestDB(t)
+	defer helper.cleanup()
+
+	helper.createMigrationFile(t, "001_create_users.sql", `
+		CREATE TABLE users (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL
+		);
+	`)
+
+	// Get database URL from environment (set by setupTestDB)
+	databaseURL := os.Getenv("DATABASE_URL")
+
+	// Create migrator with explicit options (no environment variables needed)
+	m := NewWithOptions(helper.db, Options{
+		MigrationsPath: helper.migrationsDir,
+		DatabaseURL:    databaseURL,
+	})
+
+	// Run migrations
+	err := m.Migrate(context.Background())
+	require.NoError(t, err)
+
+	// Verify table was created
+	assert.True(t, helper.tableExists(t, "users"))
+
+	// Verify migration was tracked
+	applied := helper.getAppliedMigrations(t)
+	assert.Equal(t, []string{"001_create_users.sql"}, applied)
+}
+
+func TestMigrator_WithOptions_NoDatabaseURL_SkipsShadowDB(t *testing.T) {
+	helper := setupTestDB(t)
+	defer helper.cleanup()
+
+	helper.createMigrationFile(t, "001_create_users.sql", `
+		CREATE TABLE users (id SERIAL PRIMARY KEY);
+	`)
+
+	// Temporarily unset DATABASE_URL to test fallback behavior
+	originalURL := os.Getenv("DATABASE_URL")
+	os.Unsetenv("DATABASE_URL")
+	defer func() {
+		if originalURL != "" {
+			os.Setenv("DATABASE_URL", originalURL)
+		}
+	}()
+
+	// Create migrator without database URL
+	m := NewWithOptions(helper.db, Options{
+		MigrationsPath: helper.migrationsDir,
+		DatabaseURL:    "", // No database URL provided
+	})
+
+	// Run migrations - should skip shadow DB testing but still work
+	err := m.Migrate(context.Background())
+	require.NoError(t, err)
+
+	// Verify table was created (migration applied directly without shadow DB test)
+	assert.True(t, helper.tableExists(t, "users"))
+}

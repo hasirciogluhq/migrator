@@ -39,10 +39,17 @@ func main() {
 		// Try from project root
 		migrationsPath = "./migrations"
 	}
-	os.Setenv("MIGRATIONS_PATH", migrationsPath)
 
-	// Create migrator
-	m := migrator.New(db)
+	// Create migrator with options (recommended for production)
+	// This approach doesn't rely on environment variables for shadow DB testing
+	m := migrator.NewWithOptions(db, migrator.Options{
+		MigrationsPath: migrationsPath,
+		DatabaseURL:    databaseURL, // Explicit database URL for shadow DB testing
+	})
+
+	// Alternative: Use default constructor with environment variables
+	// os.Setenv("MIGRATIONS_PATH", migrationsPath)
+	// m := migrator.New(db)
 
 	// Get current status before migration
 	applied, err := m.GetAppliedMigrations(context.Background())
