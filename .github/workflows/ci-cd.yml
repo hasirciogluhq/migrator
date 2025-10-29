@@ -59,8 +59,8 @@ jobs:
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
       id: get_latest_tag
       run: |
-        # Get latest tag or default to v0.0.0
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        # Get latest tag or empty (will start at v1.0.0)
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
         echo "Latest tag: $LATEST_TAG"
 
@@ -69,6 +69,14 @@ jobs:
       id: next_version
       run: |
         LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+        
+        # If no tag exists, start at v1.0.0
+        if [ -z "$LATEST_TAG" ]; then
+          NEW_VERSION="v1.0.0"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "First release: $NEW_VERSION"
+          exit 0
+        fi
         
         # Extract version numbers
         VERSION=${LATEST_TAG#v}
