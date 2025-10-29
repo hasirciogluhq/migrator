@@ -50,6 +50,11 @@ type Options struct {
 	// If empty, defaults to "./migrations" or MIGRATIONS_PATH env var.
 	MigrationsPath string
 
+	// DatabaseURL is the PostgreSQL connection string used for shadow database operations.
+	// If empty, falls back to DATABASE_URL env var.
+	// Required for shadow database testing feature.
+	DatabaseURL string
+
 	// SkipShadowDB disables shadow database testing.
 	// Not recommended for production use.
 	SkipShadowDB bool
@@ -74,13 +79,26 @@ func NewWithOptions(db *sql.DB, opts Options) *Migrator {
 		}
 	}
 
+	// Get database URL from options or environment
+	databaseURL := opts.DatabaseURL
+	if databaseURL == "" {
+		databaseURL = os.Getenv("DATABASE_URL")
+	}
+
 	t := tracker.New(db)
 	v := validator.New(t, migrationsPath)
+
+	// Initialize shadow manager with database URL if provided
+	var shadowMgr *shadowdb.Manager
+	if databaseURL != "" {
+		shadowMgr, _ = shadowdb.NewWithURL(db, databaseURL)
+	}
 
 	return &Migrator{
 		db:             db,
 		tracker:        t,
 		validator:      v,
+		shadowManager:  shadowMgr,
 		migrationsPath: migrationsPath,
 	}
 }
@@ -122,17 +140,26 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 
 	// Step 5: Test new migrations on shadow database
 	if len(newMigrations) > 0 {
-		// Initialize shadow manager lazily
+		// Initialize shadow manager lazily if not already initialized
 		if m.shadowManager == nil {
-			shadowMgr, err := shadowdb.New(m.db)
-			if err != nil {
-				return fmt.Errorf("failed to initialize shadow database manager: %w", err)
+			// Try to get DATABASE_URL from environment as fallback
+			databaseURL := os.Getenv("DATABASE_URL")
+			if databaseURL != "" {
+				shadowMgr, err := shadowdb.NewWithURL(m.db, databaseURL)
+				if err != nil {
+					return fmt.Errorf("failed to initialize shadow database manager: %w", err)
+				}
+				m.shadowManager = shadowMgr
+			} else {
+				fmt.Println("⚠️  Warning: DATABASE_URL not provided, skipping shadow database test")
+				fmt.Println("   To enable shadow database testing, provide DatabaseURL in Options or set DATABASE_URL env var")
 			}
-			m.shadowManager = shadowMgr
 		}
 
-		if err := m.shadowManager.TestNewMigrations(ctx, m.tracker, newMigrations); err != nil {
-			return fmt.Errorf("shadow database test failed: %w", err)
+		if m.shadowManager != nil {
+			if err := m.shadowManager.TestNewMigrations(ctx, m.tracker, newMigrations); err != nil {
+				return fmt.Errorf("shadow database test failed: %w", err)
+			}
 		}
 	} else {
 		fmt.Println("✓ No new migrations found, skipping shadow database test")

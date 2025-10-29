@@ -20,17 +20,27 @@ type Manager struct {
 	databaseURL   string
 }
 
-// New creates a new shadow database Manager.
-func New(mainDB *sql.DB) (*Manager, error) {
-	databaseURL := os.Getenv("DATABASE_URL")
+// NewWithURL creates a new shadow database Manager with explicit database URL.
+func NewWithURL(mainDB *sql.DB, databaseURL string) (*Manager, error) {
 	if databaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL environment variable not set")
+		return nil, fmt.Errorf("database URL is required for shadow database operations")
 	}
 
 	return &Manager{
 		mainDB:      mainDB,
 		databaseURL: databaseURL,
 	}, nil
+}
+
+// New creates a new shadow database Manager using DATABASE_URL environment variable.
+// Deprecated: Use NewWithURL instead for more explicit configuration.
+func New(mainDB *sql.DB) (*Manager, error) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL environment variable not set")
+	}
+
+	return NewWithURL(mainDB, databaseURL)
 }
 
 // TestNewMigrations tests new migrations on a shadow database.

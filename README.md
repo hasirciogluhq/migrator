@@ -135,7 +135,7 @@ func main() {
 
 ### Environment Variables
 
-- `DATABASE_URL`: PostgreSQL connection string (required for shadow database operations)
+- `DATABASE_URL`: PostgreSQL connection string (optional, fallback for shadow database operations)
 - `MIGRATIONS_PATH`: Path to migrations directory (default: `./migrations`)
 
 ### Custom Configuration
@@ -143,9 +143,17 @@ func main() {
 ```go
 m := migrator.NewWithOptions(db, migrator.Options{
     MigrationsPath: "./db/migrations",
+    DatabaseURL:    "postgres://user:pass@localhost:5432/mydb", // Optional, for shadow DB testing
     SkipShadowDB:   false, // Set to true to skip shadow database testing
 })
 ```
+
+**Shadow Database Testing:**
+Shadow database testing requires a database URL to create temporary test databases. You can provide it in two ways:
+1. **Recommended (Production):** Pass it in `Options.DatabaseURL`
+2. **Fallback:** Set `DATABASE_URL` environment variable
+
+If neither is provided, shadow database testing will be skipped with a warning.
 
 ## How It Works
 
@@ -423,12 +431,23 @@ migrator/
 
 ## Troubleshooting
 
-### "DATABASE_URL environment variable not set"
+### "DATABASE_URL environment variable not set" or Shadow DB Warning
 
-Set the `DATABASE_URL` environment variable:
+If you see a warning about DATABASE_URL not being provided, you have two options:
+
+**Option 1 (Recommended):** Pass the database URL explicitly in options:
+```go
+m := migrator.NewWithOptions(db, migrator.Options{
+    DatabaseURL: "postgres://user:password@localhost:5432/mydb",
+})
+```
+
+**Option 2:** Set the `DATABASE_URL` environment variable:
 ```bash
 export DATABASE_URL="postgres://user:password@localhost:5432/mydb"
 ```
+
+Note: Shadow database testing will be skipped if no database URL is provided.
 
 ### "Migration validation failed: X migrations missing from filesystem"
 
